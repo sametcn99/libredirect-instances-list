@@ -1,48 +1,317 @@
+/**
+ * @fileoverview LibRedirect Instances List - Frontend application for browsing,
+ * filtering, searching, and health-checking LibRedirect service instances across
+ * multiple network types (Clearnet, Tor, I2P, Loki).
+ *
+ * Features:
+ *   - Fetches service instance data from a remote JSON endpoint
+ *   - Real-time instance reachability checking via HTTP HEAD-like requests
+ *   - Multi-network filtering (clearnet, tor, i2p, loki)
+ *   - Full-text search with highlighted matches
+ *   - Per-service and per-URL favorites (persisted in localStorage)
+ *   - Hide/show unreachable instances per service
+ *   - Collapsible service sections with accessible markup
+ *
+ * @module libredirect-instances
+ */
+
 (function () {
+    "use strict";
+
+    // =========================================================================
+    // CONSTANTS
+    // =========================================================================
+
+    /**
+     * Remote URL from which the network definitions are fetched (name + TLD
+     * for each supported network type).
+     * @constant {string}
+     */
+    var NETWORKS_URL = "https://raw.githubusercontent.com/libredirect/instances/refs/heads/main/networks.json";
+
+    /**
+     * Remote URL from which the service instance catalog is fetched.
+     * @constant {string}
+     */
     var DATA_URL = "https://raw.githubusercontent.com/libredirect/instances/main/data.json";
+
+    /**
+     * Allowed URL protocols. Only "https:" and "http:" are permitted; any other
+     * scheme (e.g. `javascript:`, `data:`, `ftp:`) is rejected to prevent
+     * XSS / protocol-level attacks.
+     * @constant {string[]}
+     */
     var ALLOWED_SCHEMES = ["https:", "http:"];
+
+    /**
+     * Human-readable labels for each supported network type.
+     * Populated dynamically from {@link NETWORKS_URL} with hardcoded fallback.
+     * @type {Record<string, string>}
+     */
     var NETWORK_LABELS = {
         clearnet: "Clearnet",
         tor: "Tor",
         i2p: "I2P",
         loki: "Loki"
     };
+
+    /**
+     * Ordered list of network keys used for consistent rendering order.
+     * Populated dynamically from {@link NETWORKS_URL} with hardcoded fallback.
+     * @type {string[]}
+     */
     var NETWORK_ORDER = ["clearnet", "tor", "i2p", "loki"];
+
+    /**
+     * TLD suffixes for networks that cannot be health-checked from a standard
+     * browser (e.g. `.onion`, `.i2p`, `.loki`).  Populated dynamically from
+     * {@link NETWORKS_URL} with hardcoded fallback.
+     * @type {string[]}
+     */
+    var SKIP_TLDS = ["onion", "i2p", "loki"];
+
+    /**
+     * Maximum time (in milliseconds) to wait for a single instance health check
+     * before timing out.
+     * @constant {number}
+     */
     var CHECK_TIMEOUT_MS = 6000;
+
+    /**
+     * Maximum number of concurrent health-check requests.  Bounded to avoid
+     * overwhelming the browser's connection pool or the target servers.
+     * @constant {number}
+     */
     var CONCURRENCY = 16;
+
+    /**
+     * Badge value indicating the instance was successfully contacted.
+     * @constant {1}
+     */
     var BADGE_REACHABLE = 1;
+
+    /**
+     * Badge value indicating the instance could not be contacted.
+     * @constant {0}
+     */
     var BADGE_UNREACHABLE = 0;
+
+    /**
+     * Badge value indicating the instance was skipped because it cannot be
+     * checked from a browser (e.g. .onion, .i2p, .loki domains require
+     * special proxy software).
+     * @constant {-1}
+     */
     var BADGE_SKIP = -1;
 
+    // =========================================================================
+    // TYPE DEFINITIONS
+    // =========================================================================
+
+    /**
+     * Possible health-check result badge value.
+     * @typedef {1|0|-1} BadgeResult
+     */
+
+    /**
+     * Map from instance URL to its last known health-check result.
+     * @typedef {Record<string, BadgeResult>} HealthResults
+     */
+
+    /**
+     * Map from service name to boolean indicating whether its unavailable
+     * instances are currently hidden.
+     * @typedef {Record<string, boolean>} HideByService
+     */
+
+    /**
+     * Map from service name to boolean indicating whether its section is
+     * currently expanded in the UI.
+     * @typedef {Record<string, boolean>} ExpandedSections
+     */
+
+    /**
+     * Map from URL to a pending Promise that resolves to its health-check
+     * result.  Used to coalesce duplicate concurrent checks.
+     * @typedef {Record<string, Promise<BadgeResult>>} PendingChecks
+     */
+
+    /**
+     * Map from service name to boolean indicating whether a per-service
+     * health check is currently in progress.
+     * @typedef {Record<string, boolean>} CheckingServices
+     */
+
+    /**
+     * Per-service instance data as returned by the remote JSON endpoint.
+     * Each key is a network type (clearnet/tor/i2p/loki) mapped to an array
+     * of instance URLs for that network.
+     * @typedef {Record<string, string[]>} ServiceInstances
+     */
+
+    /**
+     * Complete catalog of all services and their instances.
+     * @typedef {Record<string, ServiceInstances>} AllData
+     */
+
+    /**
+     * Object tracking which network filters are currently active (enabled).
+     * @typedef {Record<string, boolean>} ActiveNetworks
+     */
+
+    /**
+     * Return value for {@link countMatches}.
+     * @typedef {{matched: number, afterHide: number}} MatchCounts
+     */
+
+    /**
+     * Favorites store shape persisted in localStorage.
+     * @typedef {{services: Record<string, boolean>, urls: Record<string, boolean>}} Favorites
+     */
+
+    // =========================================================================
+    // DOM REFERENCES
+    // =========================================================================
+
+    /**
+     * Container element where service instance sections are rendered.
+     * @type {HTMLElement}
+     */
     var instancesContainer = document.getElementById("instances");
+
+    /**
+     * Loading indicator element removed once data is fetched.
+     * @type {HTMLElement}
+     */
     var loadingEl = document.getElementById("loading");
+
+    /**
+     * Search / filter input field.
+     * @type {HTMLInputElement}
+     */
     var searchInput = document.getElementById("search");
+
+    /**
+     * Network filter checkboxes keyed by network name.
+     * @type {Record<string, HTMLInputElement>}
+     */
     var filterCheckboxes = {
         clearnet: document.getElementById("filter-clearnet"),
         tor: document.getElementById("filter-tor"),
         i2p: document.getElementById("filter-i2p"),
         loki: document.getElementById("filter-loki")
     };
+
+    /**
+     * "Check All" button to run health checks against every instance.
+     * @type {HTMLButtonElement}
+     */
     var checkAllBtn = document.getElementById("check-all");
+
+    /**
+     * Toggle button to hide/show all currently unreachable instances.
+     * @type {HTMLButtonElement}
+     */
     var hideAllBtn = document.getElementById("hide-all");
+
+    /**
+     * Status bar element showing global health-check summary.
+     * @type {HTMLElement}
+     */
     var healthStatusEl = document.getElementById("health-status");
+
+    /**
+     * Button to clear all saved favorites.
+     * @type {HTMLButtonElement}
+     */
     var clearFavsBtn = document.getElementById("clear-favs");
+
+    /**
+     * Button to clear all persisted data (favorites + filters).
+     * @type {HTMLButtonElement}
+     */
     var clearAllDataBtn = document.getElementById("clear-all-data");
 
+    // =========================================================================
+    // STORAGE KEYS
+    // =========================================================================
+
+    /** @constant {string} */
     var FAV_STORAGE_KEY = "libredirect_favorites";
+    /** @constant {string} */
     var FILTER_STORAGE_KEY = "libredirect_network_filters";
+    /** @constant {string} Prefix for service-level favorite keys. */
     var FAV_SVC_KEY = "svc_";
+    /** @constant {string} Prefix for URL-level favorite keys. */
     var FAV_URL_KEY = "url_";
 
+    // =========================================================================
+    // APPLICATION STATE
+    // =========================================================================
+
+    /**
+     * Loaded instance catalog, or `null` before the initial fetch completes.
+     * @type {?AllData}
+     */
     var allData = null;
+
+    /**
+     * Accumulated health-check results keyed by instance URL.
+     * @type {HealthResults}
+     */
     var healthResults = {};
+
+    /**
+     * Per-service health-check-in-progress flags.
+     * @type {CheckingServices}
+     */
     var checkingServices = {};
+
+    /**
+     * Per-service "hide unavailable" toggle state.
+     * @type {HideByService}
+     */
     var hideByService = {};
+
+    /**
+     * Per-service section expand / collapse state.
+     * @type {ExpandedSections}
+     */
     var expandedSections = {};
+
+    /**
+     * In-flight health-check promises keyed by URL for deduplication.
+     * @type {PendingChecks}
+     */
     var pendingChecks = {};
+
+    /**
+     * Count of services currently undergoing a health check.
+     * Used to coordinate global UI controls.
+     * @type {number}
+     */
     var checkInProgressCount = 0;
+
+    /**
+     * Favorites store (service-level and URL-level).
+     * @type {Favorites}
+     */
     var favorites = { services: {}, urls: {} };
 
+    // =========================================================================
+    // PERSISTENCE: FAVORITES
+    // =========================================================================
+
+    /**
+     * Load the favorites store from {@link https://developer.mozilla.org/en-US/docs/Web/API/Window/localStorage|localStorage}.
+     * On any parse or integrity failure the store is reset to an empty state
+     * to prevent cascading errors.
+     *
+     * Safety: catches all exceptions so a corrupted localStorage entry cannot
+     * break the application.
+     *
+     * @returns {void}
+     */
     function loadFavorites() {
         try {
             var raw = localStorage.getItem(FAV_STORAGE_KEY);
@@ -54,6 +323,13 @@
         }
     }
 
+    /**
+     * Persist the current favorites store to localStorage.
+     * If there are no favorites the key is removed entirely to keep storage
+     * clean.
+     *
+     * @returns {void}
+     */
     function saveFavorites() {
         try {
             var hasFav = false;
@@ -67,6 +343,16 @@
         } catch (e) { }
     }
 
+    // =========================================================================
+    // PERSISTENCE: NETWORK FILTERS
+    // =========================================================================
+
+    /**
+     * Restore network filter checkbox states from localStorage and sync them
+     * to the DOM.
+     *
+     * @returns {void}
+     */
     function loadFilters() {
         try {
             var raw = localStorage.getItem(FILTER_STORAGE_KEY);
@@ -81,6 +367,13 @@
         } catch (e) { }
     }
 
+    /**
+     * Persist the current network filter checkbox states to localStorage.
+     * If all filters are enabled (the default), the key is removed to
+     * minimise stored data.
+     *
+     * @returns {void}
+     */
     function saveFilters() {
         try {
             var state = {};
@@ -97,6 +390,16 @@
         } catch (e) { }
     }
 
+    // =========================================================================
+    // FAVORITES LOGIC
+    // =========================================================================
+
+    /**
+     * Toggle a service's favorite status on or off.
+     *
+     * @param {string} name - Service name (e.g. "youtube", "reddit").
+     * @returns {void}
+     */
     function toggleFavService(name) {
         var key = FAV_SVC_KEY + name;
         if (favorites.services[key]) {
@@ -110,6 +413,12 @@
         refresh();
     }
 
+    /**
+     * Toggle a specific instance URL's favorite status on or off.
+     *
+     * @param {string} url - Full instance URL.
+     * @returns {void}
+     */
     function toggleFavUrl(url) {
         var key = FAV_URL_KEY + url;
         if (favorites.urls[key]) {
@@ -123,14 +432,36 @@
         refresh();
     }
 
+    /**
+     * Test whether a service is currently favorited.
+     *
+     * @param {string} name - Service name.
+     * @returns {boolean} `true` if the service is a favorite.
+     */
     function isFavService(name) {
         return !!favorites.services[FAV_SVC_KEY + name];
     }
 
+    /**
+     * Test whether a specific instance URL is currently favorited.
+     *
+     * @param {string} url - Full instance URL.
+     * @returns {boolean} `true` if the URL is a favorite.
+     */
     function isFavUrl(url) {
         return !!favorites.urls[FAV_URL_KEY + url];
     }
 
+    // =========================================================================
+    // UI STATE HELPERS
+    // =========================================================================
+
+    /**
+     * Enable or disable the "Clear Favorites" button based on whether any
+     * favorites exist.
+     *
+     * @returns {void}
+     */
     function updateClearFavsBtn() {
         var hasFav = false;
         for (var k in favorites.services) { hasFav = true; break; }
@@ -140,11 +471,37 @@
         clearFavsBtn.disabled = !hasFav;
     }
 
+    /**
+     * Enable or disable the "Clear All Data" button based on whether any
+     * persistent data exists in localStorage.
+     *
+     * @returns {void}
+     */
     function updateClearAllDataBtn() {
         var hasData = !!localStorage.getItem(FAV_STORAGE_KEY) || !!localStorage.getItem(FILTER_STORAGE_KEY);
         clearAllDataBtn.disabled = !hasData;
     }
 
+    // =========================================================================
+    // RENDERING HELPERS
+    // =========================================================================
+
+    /**
+     * Create a text node (or a fragment with `<mark>` highlights) for a given
+     * search filter.  Used to highlight matching substrings in service names
+     * and instance URLs.
+     *
+     * **No HTML injection is possible** — `document.createTextNode` is used to
+     * set all user-controlled text, so `<` and `>` characters are escaped by
+     * the browser.
+     *
+     * @param {string} text - The full text to display.
+     * @param {string} lowerFilter - Lowercased search term, or empty string to
+     *   skip highlighting.
+     * @returns {DocumentFragment|Text} A text node if no filter is active, or a
+     *   fragment containing text nodes and `<mark>` elements for matched
+     *   portions.
+     */
     function highlightMatch(text, lowerFilter) {
         if (!lowerFilter) return document.createTextNode(text);
         var lower = text.toLowerCase();
@@ -164,6 +521,18 @@
         return frag;
     }
 
+    // =========================================================================
+    // URL VALIDATION
+    // =========================================================================
+
+    /**
+     * Validate that a URL uses an allowed scheme and has a non-empty hostname.
+     * This is a defense-in-depth check: only `https:` and `http:` URLs pass.
+     *
+     * @param {string} url - The URL string to validate.
+     * @returns {boolean} `true` if the URL is safe to use as a hyperlink or
+     *   for health-check requests.
+     */
     function isAllowedUrl(url) {
         try {
             var parsed = new URL(url);
@@ -175,19 +544,48 @@
         }
     }
 
+    /**
+     * Determine whether a URL is eligible for a browser-based reachability
+     * check.  Special-network domains (e.g. `.onion`, `.i2p`, `.loki`) are
+     * excluded because the browser cannot resolve them without proxy software.
+     * The exclusion list is built dynamically from {@link NETWORKS_URL}.
+     *
+     * @param {string} url - The URL to test.
+     * @returns {boolean} `true` if the instance can be health-checked from a
+     *   standard browser.
+     */
     function isCheckableUrl(url) {
         if (!isAllowedUrl(url)) return false;
         try {
             var host = new URL(url).hostname.toLowerCase();
-            if (host.endsWith(".onion")) return false;
-            if (host.endsWith(".i2p")) return false;
-            if (host.endsWith(".loki")) return false;
+            for (var i = 0; i < SKIP_TLDS.length; i++) {
+                if (host.endsWith("." + SKIP_TLDS[i])) return false;
+            }
             return true;
         } catch (e) {
             return false;
         }
     }
 
+    // =========================================================================
+    // HEALTH CHECK LOGIC
+    // =========================================================================
+
+    /**
+     * Check whether a single instance URL is reachable.
+     *
+     * Uses a `GET` request with `mode: "no-cors"` so that cross-origin
+     * responses are handled cleanly (the browser will see a successful opaque
+     * response even if CORS headers are absent).  A {@link CHECK_TIMEOUT_MS}
+     * timeout is enforced via `AbortController`.
+     *
+     * **Deduplication**: if a check for this URL is already in flight the
+     * existing promise is returned so callers share the same result.
+     *
+     * @param {string} url - The instance URL to check.
+     * @returns {Promise<BadgeResult>} Resolves to `BADGE_REACHABLE`,
+     *   `BADGE_UNREACHABLE`, or `BADGE_SKIP`.
+     */
     function checkUrlReachable(url) {
         if (pendingChecks[url]) return pendingChecks[url];
         if (healthResults.hasOwnProperty(url)) {
@@ -243,6 +641,14 @@
         return promise;
     }
 
+    /**
+     * Collect all allowed instance URLs for a given service across all
+     * network types, in the order defined by {@link NETWORK_ORDER}.
+     *
+     * @param {string} serviceName - Service key in {@link allData}.
+     * @returns {string[]} Flat array of instance URLs (may be empty if the
+     *   service is not found or has no valid URLs).
+     */
     function getServiceUrls(serviceName) {
         var urls = [];
         var service = allData[serviceName];
@@ -260,6 +666,13 @@
         return urls;
     }
 
+    /**
+     * Deduplicate an array of URLs in insertion order, preserving only the
+     * first occurrence of each unique URL.
+     *
+     * @param {string[]} urlSource - Array potentially containing duplicates.
+     * @returns {string[]} Deduplicated copy.
+     */
     function collectCheckableUrls(urlSource) {
         var seen = {};
         var result = [];
@@ -273,6 +686,13 @@
         return result;
     }
 
+    /**
+     * Return the subset of a service's instance URLs that have not yet been
+     * checked (no cached result and no in-flight promise).
+     *
+     * @param {string} serviceName - Service key.
+     * @returns {string[]} Deduplicated array of unchecked URLs.
+     */
     function getUncheckedServiceUrls(serviceName) {
         var urls = getServiceUrls(serviceName);
         var unchecked = [];
@@ -284,6 +704,13 @@
         return collectCheckableUrls(unchecked);
     }
 
+    /**
+     * Return every instance URL across all services that has not yet been
+     * health-checked.  Useful for the global "Check All" feature.
+     *
+     * @returns {string[]} Deduplicated array of unchecked URLs across all
+     *   services.
+     */
     function getAllUncheckedUrls() {
         var all = [];
         var services = Object.keys(allData);
@@ -298,6 +725,20 @@
         return collectCheckableUrls(all);
     }
 
+    /**
+     * Run health checks against a list of URLs with limited concurrency.
+     *
+     * The first {@link CONCURRENCY} checks are started simultaneously; each
+     * worker chains the next URL from the list via sequential `.then()` calls.
+     * An optional progress callback is invoked after each individual check
+     * completes.
+     *
+     * @param {string[]} urls - URLs to check.
+     * @param {(function(number, number): void)=} onProgress - Called with
+     *   `(completedCount, totalCount)` after each URL resolves.
+     * @returns {Promise<void>} Resolves when **all** URLs have been checked
+     *   (regardless of individual success/failure).
+     */
     function runCheck(urls, onProgress) {
         if (urls.length === 0) {
             if (onProgress) onProgress(0, 0);
@@ -325,6 +766,19 @@
         return Promise.all(workers);
     }
 
+    // =========================================================================
+    // HIGH-LEVEL CHECK ENTRY POINTS
+    // =========================================================================
+
+    /**
+     * Kick off a health check for every unchecked URL of a single service.
+     * Updates the per-service status element and triggers a UI refresh when
+     * all checks finish.  Idempotent: if a check is already in progress for
+     * this service the call is silently ignored.
+     *
+     * @param {string} serviceName - Service to check.
+     * @returns {void}
+     */
     function startCheckService(serviceName) {
         if (checkingServices[serviceName] || !allData) return;
         checkingServices[serviceName] = true;
@@ -354,6 +808,12 @@
         });
     }
 
+    /**
+     * Kick off a global health check for every unchecked URL across all
+     * services.  Disables the "Check All" button while running.
+     *
+     * @returns {void}
+     */
     function startCheckAll() {
         if (!allData) return;
         var urls = getAllUncheckedUrls();
@@ -366,7 +826,7 @@
                 if (healthResults[svcUrls[u]] === BADGE_SKIP) skippedCount++;
             }
         }
-        healthStatusEl.textContent = "Checking 0/" + urls.length + (cached > 0 ? " (cached: " + cached + ")" : "") + (skippedCount > 0 ? " | " + skippedCount + " skipped (Tor/I2P/Loki)" : "");
+        healthStatusEl.textContent = "Checking 0/" + urls.length + (cached > 0 ? " (cached: " + cached + ")" : "") + (skippedCount > 0 ? " | " + skippedCount + " skipped (" + buildSkipLabel() + ")" : "");
 
         checkAllBtn.disabled = true;
         checkInProgressCount++;
@@ -383,6 +843,16 @@
         });
     }
 
+    // =========================================================================
+    // HEALTH SUMMARY & STATUS
+    // =========================================================================
+
+    /**
+     * Update the global health summary bar with counts of reachable,
+     * unreachable, and skipped instances.
+     *
+     * @returns {void}
+     */
     function updateHealthSummary() {
         var reachable = 0;
         var unreachable = 0;
@@ -397,6 +867,13 @@
         healthStatusEl.textContent = text;
     }
 
+    /**
+     * Update the per-service status label showing how many of that service's
+     * instances have been checked and how many are reachable.
+     *
+     * @param {string} serviceName - Service to update.
+     * @returns {void}
+     */
     function updateServiceStatus(serviceName) {
         var statusEl = document.getElementById("svc-status-" + serviceName);
         if (!statusEl) return;
@@ -416,6 +893,11 @@
         }
     }
 
+    /**
+     * Iterate over every service and update its per-service status label.
+     *
+     * @returns {void}
+     */
     function updateAllServiceStatuses() {
         if (!allData) return;
         var services = Object.keys(allData);
@@ -424,6 +906,12 @@
         }
     }
 
+    /**
+     * Update the global "Hide/Show All" button label and enabled state based
+     * on current hide flags and health-results availability.
+     *
+     * @returns {void}
+     */
     function updateGlobalControls() {
         var anyHide = false;
         var services = Object.keys(allData || {});
@@ -438,8 +926,14 @@
         hideAllBtn.disabled = !hasResults;
     }
 
+    // =========================================================================
+    // EVENT LISTENERS (GLOBAL BUTTONS)
+    // =========================================================================
+
+    // "Check All" - runs health checks against every instance across all services
     checkAllBtn.addEventListener("click", startCheckAll);
 
+    // "Clear Favorites" - resets the entire favorites store after confirmation
     clearFavsBtn.addEventListener("click", function () {
         if (confirm("Are you sure you want to clear all favorites?")) {
             favorites = { services: {}, urls: {} };
@@ -450,6 +944,7 @@
         }
     });
 
+    // "Clear All Data" - wipes favorites, resets filters to defaults, and clears localStorage
     clearAllDataBtn.addEventListener("click", function () {
         if (confirm("Are you sure you want to clear all saved data? This includes favorites, filter settings, and any other stored preferences.")) {
             favorites = { services: {}, urls: {} };
@@ -464,6 +959,7 @@
         }
     });
 
+    // "Hide All / Show All" - toggles the per-service hide flag for every service
     hideAllBtn.addEventListener("click", function () {
         if (!allData) return;
         var anyActive = false;
@@ -479,6 +975,26 @@
         refresh();
     });
 
+    // =========================================================================
+    // COUNTING & MATCHING
+    // =========================================================================
+
+    /**
+     * Count how many instances of a service match the current search filter
+     * and how many remain visible after applying the "hide unavailable" flag.
+     *
+     * @param {ServiceInstances} service - The per-network URL arrays for the
+     *   service.
+     * @param {string} serviceName - The service name (used for text matching
+     *   and hide-lookup).
+     * @param {ActiveNetworks} activeNetworks - Which network types are
+     *   currently enabled.
+     * @param {string} lowerFilter - Lowercased search term ("" means no
+     *   filter).
+     * @returns {MatchCounts} Object with `matched` (total instances matching
+     *   the filter) and `afterHide` (subset still visible after hiding
+     *   unreachable instances).
+     */
     function countMatches(service, serviceName, activeNetworks, lowerFilter) {
         var matched = 0;
         var afterHide = 0;
@@ -498,6 +1014,19 @@
         return { matched: matched, afterHide: afterHide };
     }
 
+    // =========================================================================
+    // RENDERING: BADGES
+    // =========================================================================
+
+    /**
+     * Create a `<span>` badge element that visually indicates a health-check
+     * result: ✓ (green) for reachable, ✗ (red) for unreachable, – (muted)
+     * for skipped.
+     *
+     * @param {BadgeResult} result - One of `BADGE_REACHABLE`, `BADGE_UNREACHABLE`,
+     *   or `BADGE_SKIP`.
+     * @returns {HTMLSpanElement} The badge element ready for DOM insertion.
+     */
     function renderBadge(result) {
         var badge = document.createElement("span");
         if (result === BADGE_REACHABLE) {
@@ -508,12 +1037,34 @@
             badge.style.color = "var(--red)";
         } else if (result === BADGE_SKIP) {
             badge.textContent = " \u2013";
-            badge.title = "Cannot check from browser (Tor/I2P/Loki)";
+            badge.title = "Cannot check from browser (" + buildSkipLabel() + ")";
             badge.style.color = "var(--text-muted)";
         }
         return badge;
     }
 
+    // =========================================================================
+    // RENDERING: MAIN
+    // =========================================================================
+
+    /**
+     * Build and insert the full instance list DOM from scratch.
+     *
+     * This is the core rendering function.  It sorts services (favorites
+     * first), filters by search text and active networks, collapses hidden
+     * services, and produces accessible, interactive markup with favorite
+     * toggles, check buttons, hide toggles, and reachability badges.
+     *
+     * **Security note**: all text content is inserted via
+     * `document.createTextNode` or `.textContent`.  Anchor `href` values are
+     * validated through {@link isAllowedUrl} and protected from
+     * `javascript:` / `data:` URIs.
+     *
+     * @param {AllData} data - The full service-instance catalog.
+     * @param {string} filterText - Raw search input value (untrimmed).
+     * @param {ActiveNetworks} activeNetworks - Which network types are enabled.
+     * @returns {void}
+     */
     function renderInstances(data, filterText, activeNetworks) {
         var services = Object.keys(data);
         services.sort(function (a, b) {
@@ -675,6 +1226,8 @@
                     })(vUrl));
                     li.appendChild(urlFavBtn);
 
+                    // Double-validate: exclude javascript: and data: URIs even if they
+                    // somehow passed isAllowedUrl (defense in depth).
                     if (isAllowedUrl(vUrl) && vUrl.indexOf("javascript:") !== 0 && vUrl.indexOf("data:") !== 0) {
                         var a = document.createElement("a");
                         a.href = vUrl;
@@ -701,6 +1254,13 @@
         updateAllServiceStatuses();
     }
 
+    /**
+     * Build the active-networks map from the current state of filter
+     * checkboxes.
+     *
+     * @returns {ActiveNetworks} Object whose keys are network names and values
+     *   are boolean checked states.
+     */
     function getActiveNetworks() {
         var networks = {};
         for (var key in filterCheckboxes) {
@@ -709,12 +1269,34 @@
         return networks;
     }
 
+    // =========================================================================
+    // REFRESH & DEBOUNCE
+    // =========================================================================
+
+    /**
+     * Timer ID for the debounced refresh.  `null` when no refresh is pending.
+     * @type {?number}
+     */
     var debounceTimer = null;
+
+    /**
+     * Immediate (synchronous) re-render of the instance list using current
+     * filter state and search input.  No-op if data has not been loaded yet.
+     *
+     * @returns {void}
+     */
     function refresh() {
         if (!allData) return;
         renderInstances(allData, searchInput.value, getActiveNetworks());
     }
 
+    /**
+     * Debounced wrapper around {@link refresh}.  Rapid successive calls are
+     * coalesced into a single render after 200 ms of inactivity, preventing
+     * unnecessary reflows while the user types.
+     *
+     * @returns {void}
+     */
     function debouncedRefresh() {
         if (debounceTimer) clearTimeout(debounceTimer);
         debounceTimer = setTimeout(function () {
@@ -723,7 +1305,14 @@
         }, 200);
     }
 
+    // =========================================================================
+    // SEARCH & FILTER EVENT BINDINGS
+    // =========================================================================
+
+    // Search input: debounced re-render on each keystroke
     searchInput.addEventListener("input", debouncedRefresh);
+
+    // Network filter checkboxes: persist state and re-render on change
     for (var key in filterCheckboxes) {
         filterCheckboxes[key].addEventListener("change", function () {
             saveFilters();
@@ -732,6 +1321,15 @@
         });
     }
 
+    // =========================================================================
+    // DATA FETCH & INITIALIZATION
+    // =========================================================================
+
+    /**
+     * AbortController used to cancel in-flight fetches if the user navigates
+     * away before they complete, preventing wasted network usage.
+     * @type {AbortController}
+     */
     var fetchController = new AbortController();
 
     loadFavorites();
@@ -739,11 +1337,78 @@
     updateClearFavsBtn();
     updateClearAllDataBtn();
 
+    /**
+     * Cancel pending fetches on `beforeunload` so the browser can cleanly
+     * tear down the page.
+     */
     window.addEventListener("beforeunload", function () {
         fetchController.abort();
     });
 
-    fetch(DATA_URL, { signal: fetchController.signal })
+    /**
+     * Build the skip-TLD message string (e.g. "Tor/I2P/Loki") from the current
+     * {@link NETWORK_LABELS}, excluding the "clearnet" entry.
+     *
+     * @returns {string} Comma-separated network labels that are skipped.
+     */
+    function buildSkipLabel() {
+        var labels = [];
+        for (var i = 0; i < NETWORK_ORDER.length; i++) {
+            if (NETWORK_ORDER[i] !== "clearnet") {
+                labels.push(NETWORK_LABELS[NETWORK_ORDER[i]] || NETWORK_ORDER[i]);
+            }
+        }
+        return labels.join("/");
+    }
+
+    /**
+     * Apply network definitions from a parsed `networks.json` response.
+     * Updates {@link NETWORK_LABELS}, {@link NETWORK_ORDER}, and
+     * {@link SKIP_TLDS}.
+     *
+     * @param {Record<string, {tld: string, name: string}>} networks - Parsed
+     *   networks.json data.
+     * @returns {void}
+     */
+    function applyNetworks(networks) {
+        var labels = {};
+        var order = [];
+        var tlds = [];
+
+        var keys = Object.keys(networks);
+        for (var i = 0; i < keys.length; i++) {
+            var key = keys[i];
+            var def = networks[key];
+            labels[key] = def.name || key;
+            order.push(key);
+            if (key !== "clearnet" && def.tld) {
+                tlds.push(def.tld);
+            }
+        }
+
+        if (order.length > 0) {
+            NETWORK_ORDER = order;
+            NETWORK_LABELS = labels;
+            SKIP_TLDS = tlds;
+        }
+    }
+
+    /**
+     * Fetch the network definitions, apply them, then fetch the service
+     * instance catalog, and trigger the initial render.
+     *
+     * On failure an error message is displayed inside the instances container
+     * as an ARIA `role="alert"` element so assistive technology announces it.
+     */
+    fetch(NETWORKS_URL, { signal: fetchController.signal })
+        .then(function (response) {
+            if (!response.ok) throw new Error("HTTP " + response.status);
+            return response.json();
+        })
+        .then(function (networks) {
+            applyNetworks(networks);
+            return fetch(DATA_URL, { signal: fetchController.signal });
+        })
         .then(function (response) {
             if (!response.ok) throw new Error("HTTP " + response.status);
             return response.json();
