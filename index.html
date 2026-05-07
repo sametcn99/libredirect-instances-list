@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>LibRedirect Instances List — Privacy Front-End Instances</title>
+		<meta
+			name="description"
+			content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse available Invidious, Nitter, SearXNG, and more instances across clearnet, Tor, I2P, and Loki networks."
+		/>
+		<meta name="robots" content="index, follow" />
+		<link rel="canonical" href="https://libredirect-instances-list.vercel.app/" />
+		<meta property="og:title" content="LibRedirect Instances List" />
+		<meta
+			property="og:description"
+			content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect."
+		/>
+		<meta property="og:type" content="website" />
+		<meta name="theme-color" content="#0d1117" />
+		<link rel="stylesheet" href="app.css" />
+	</head>
+	<body>
+		<header>
+			<h1>LibRedirect Instances List</h1>
+			<p>
+				This page fetches the
+				<a href="https://github.com/libredirect/instances" rel="noopener noreferrer">LibRedirect instances</a> JSON
+				directly in your browser. No server-side processing — your client fetches the data on every visit. You can
+				favorite services or URLs to pin them to the top of the list; favorites are saved in your browser's local
+				storage. The "Check Availability" feature uses <code>fetch()</code> with <code>no-cors</code> mode, which
+				returns opaque responses — instances that respond successfully are marked as reachable, but CORS-restricted
+				instances may appear unreachable despite being online. Tor, I2P, and Loki instances cannot be checked from a
+				regular browser and are automatically skipped.
+			</p>
+			<nav aria-label="Instance filters">
+				<div>
+					<label for="search">Search instances:</label>
+					<input
+						type="search"
+						id="search"
+						placeholder="Filter by service name or URL"
+						autocomplete="off"
+						aria-label="Filter instances by service name or URL"
+					/>
+				</div>
+				<fieldset>
+					<legend>Network filters</legend>
+					<ul id="network-filters">
+						<li>
+							<label><input type="checkbox" id="filter-clearnet" checked /> Clearnet</label>
+						</li>
+						<li>
+							<label><input type="checkbox" id="filter-tor" checked /> Tor</label>
+						</li>
+						<li>
+							<label><input type="checkbox" id="filter-i2p" checked /> I2P</label>
+						</li>
+						<li>
+							<label><input type="checkbox" id="filter-loki" checked /> Loki</label>
+						</li>
+					</ul>
+				</fieldset>
+				<div id="health-controls" role="group" aria-label="Availability controls">
+					<button type="button" id="check-all" class="ctrl-btn">Check All Availability</button>
+					<button type="button" id="hide-all" class="ctrl-btn" disabled>Hide All Unavailable</button>
+					<button type="button" id="clear-favs" class="ctrl-btn" disabled aria-label="Clear all saved favorites">
+						Clear Favorites
+					</button>
+					<span id="health-status" role="status" aria-live="polite"></span>
+				</div>
+			</nav>
+		</header>
+		<main id="instances" aria-label="Instance list" aria-busy="true">
+			<p id="loading" role="status">Loading instances…</p>
+		</main>
+		<script src="app.js" defer></script>
+	</body>
+</html>
