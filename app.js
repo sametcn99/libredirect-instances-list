@@ -27,8 +27,10 @@
     var hideAllBtn = document.getElementById("hide-all");
     var healthStatusEl = document.getElementById("health-status");
     var clearFavsBtn = document.getElementById("clear-favs");
+    var clearAllDataBtn = document.getElementById("clear-all-data");
 
     var FAV_STORAGE_KEY = "libredirect_favorites";
+    var FILTER_STORAGE_KEY = "libredirect_network_filters";
     var FAV_SVC_KEY = "svc_";
     var FAV_URL_KEY = "url_";
 
@@ -54,7 +56,44 @@
 
     function saveFavorites() {
         try {
-            localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(favorites));
+            var hasFav = false;
+            for (var k in favorites.services) { hasFav = true; break; }
+            if (!hasFav) { for (var u in favorites.urls) { hasFav = true; break; } }
+            if (hasFav) {
+                localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(favorites));
+            } else {
+                localStorage.removeItem(FAV_STORAGE_KEY);
+            }
+        } catch (e) { }
+    }
+
+    function loadFilters() {
+        try {
+            var raw = localStorage.getItem(FILTER_STORAGE_KEY);
+            if (raw) {
+                var saved = JSON.parse(raw);
+                for (var key in saved) {
+                    if (filterCheckboxes[key]) {
+                        filterCheckboxes[key].checked = !!saved[key];
+                    }
+                }
+            }
+        } catch (e) { }
+    }
+
+    function saveFilters() {
+        try {
+            var state = {};
+            var allDefault = true;
+            for (var key in filterCheckboxes) {
+                state[key] = filterCheckboxes[key].checked;
+                if (!state[key]) allDefault = false;
+            }
+            if (allDefault) {
+                localStorage.removeItem(FILTER_STORAGE_KEY);
+            } else {
+                localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state));
+            }
         } catch (e) { }
     }
 
@@ -67,6 +106,7 @@
         }
         saveFavorites();
         updateClearFavsBtn();
+        updateClearAllDataBtn();
         refresh();
     }
 
@@ -79,6 +119,7 @@
         }
         saveFavorites();
         updateClearFavsBtn();
+        updateClearAllDataBtn();
         refresh();
     }
 
@@ -97,6 +138,11 @@
             for (var u in favorites.urls) { hasFav = true; break; }
         }
         clearFavsBtn.disabled = !hasFav;
+    }
+
+    function updateClearAllDataBtn() {
+        var hasData = !!localStorage.getItem(FAV_STORAGE_KEY) || !!localStorage.getItem(FILTER_STORAGE_KEY);
+        clearAllDataBtn.disabled = !hasData;
     }
 
     function highlightMatch(text, lowerFilter) {
@@ -399,6 +445,21 @@
             favorites = { services: {}, urls: {} };
             saveFavorites();
             updateClearFavsBtn();
+            updateClearAllDataBtn();
+            refresh();
+        }
+    });
+
+    clearAllDataBtn.addEventListener("click", function () {
+        if (confirm("Are you sure you want to clear all saved data? This includes favorites, filter settings, and any other stored preferences.")) {
+            favorites = { services: {}, urls: {} };
+            for (var key in filterCheckboxes) {
+                filterCheckboxes[key].checked = true;
+            }
+            localStorage.removeItem(FAV_STORAGE_KEY);
+            localStorage.removeItem(FILTER_STORAGE_KEY);
+            updateClearFavsBtn();
+            updateClearAllDataBtn();
             refresh();
         }
     });
@@ -664,13 +725,19 @@
 
     searchInput.addEventListener("input", debouncedRefresh);
     for (var key in filterCheckboxes) {
-        filterCheckboxes[key].addEventListener("change", refresh);
+        filterCheckboxes[key].addEventListener("change", function () {
+            saveFilters();
+            updateClearAllDataBtn();
+            refresh();
+        });
     }
 
     var fetchController = new AbortController();
 
     loadFavorites();
+    loadFilters();
     updateClearFavsBtn();
+    updateClearAllDataBtn();
 
     window.addEventListener("beforeunload", function () {
         fetchController.abort();

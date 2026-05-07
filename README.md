@@ -11,8 +11,9 @@ A client-side web app that fetches and displays [LibRedirect](https://github.com
 - Tor, I2P, and Loki instances are automatically skipped during checks (cannot be reached from a regular browser)
 - Hide unavailable instances with one click
 - Favorite services and URLs — favorited items are pinned to the top
-- Favorites are persisted in your browser's localStorage
+- Favorites and network filter preferences are persisted in your browser's localStorage
 - Clear all favorites with one button (with confirmation)
+- Clear all stored data (favorites + filter settings) with one button (with confirmation) — "Clear LocalStorage"
 
 ## Caveats
 

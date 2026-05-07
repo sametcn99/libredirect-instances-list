@@ -51,11 +51,12 @@
 				This page fetches the
 				<a href="https://github.com/libredirect/instances" rel="noopener noreferrer">LibRedirect instances</a> JSON
 				directly in your browser. No server-side processing — your client fetches the data on every visit. You can
-				favorite services or URLs to pin them to the top of the list; favorites are saved in your browser's local
-				storage. The "Check Availability" feature uses <code>fetch()</code> with <code>no-cors</code> mode, which
-				returns opaque responses — instances that respond successfully are marked as reachable, but CORS-restricted
-				instances may appear unreachable despite being online. Tor, I2P, and Loki instances cannot be checked from a
-				regular browser and are automatically skipped.
+				favorite services or URLs to pin them to the top of the list; favorites and network filter preferences are saved
+				in your browser's local storage. You can clear only favorites or clear all localStorage (favorites + filter
+				settings) using the buttons below. The "Check Availability" feature uses <code>fetch()</code> with
+				<code>no-cors</code> mode, which returns opaque responses — instances that respond successfully are marked as
+				reachable, but CORS-restricted instances may appear unreachable despite being online. Tor, I2P, and Loki
+				instances cannot be checked from a regular browser and are automatically skipped.
 			</p>
 			<nav aria-label="Instance filters">
 				<div>
@@ -90,6 +91,15 @@
 					<button type="button" id="hide-all" class="ctrl-btn" disabled>Hide All Unavailable</button>
 					<button type="button" id="clear-favs" class="ctrl-btn" disabled aria-label="Clear all saved favorites">
 						Clear Favorites
+					</button>
+					<button
+						type="button"
+						id="clear-all-data"
+						class="ctrl-btn"
+						disabled
+						aria-label="Clear all localStorage data including favorites and filters"
+					>
+						Clear LocalStorage
 					</button>
 					<span id="health-status" role="status" aria-live="polite"></span>
 				</div>
