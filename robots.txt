@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://libredirect-instances-list.vercel.app/sitemap.xml

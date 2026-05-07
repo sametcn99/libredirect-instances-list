@@ -26,6 +26,12 @@
 			content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse Invidious, Nitter, SearXNG, and more."
 		/>
 		<meta name="theme-color" content="#0d1117" />
+		<meta name="apple-mobile-web-app-capable" content="yes" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+		<meta name="apple-mobile-web-app-title" content="LibRedirect" />
+		<link rel="manifest" href="manifest.json" />
+		<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png" />
+		<link rel="apple-touch-icon" href="icon-192x192.png" />
 		<link rel="stylesheet" href="app.css" />
 		<script type="application/ld+json">
 			{
@@ -114,5 +120,19 @@
 			<p id="loading" role="status">Loading instances…</p>
 		</main>
 		<script src="app.js" defer></script>
+		<script>
+			if ("serviceWorker" in navigator) {
+				window.addEventListener("load", function () {
+					navigator.serviceWorker.register("/service-worker.js").then(
+						function (registration) {
+							console.log("ServiceWorker registered:", registration.scope);
+						},
+						function (error) {
+							console.log("ServiceWorker registration failed:", error);
+						},
+					);
+				});
+			}
+		</script>
 	</body>
 </html>
