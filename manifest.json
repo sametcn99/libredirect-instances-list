@@ -7,7 +7,10 @@
 	"background_color": "#0d1117",
 	"theme_color": "#0d1117",
 	"orientation": "any",
-	"categories": ["utilities", "productivity"],
+	"categories": [
+		"utilities",
+		"productivity"
+	],
 	"icons": [
 		{
 			"src": "icon-192x192.png",

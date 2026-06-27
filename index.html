@@ -1,138 +1,149 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1" />
-		<title>LibRedirect Instances List — Privacy Front-End Instances</title>
-		<meta
-			name="description"
-			content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse available Invidious, Nitter, SearXNG, and more instances across clearnet, Tor, I2P, and Loki networks."
-		/>
-		<meta name="robots" content="index, follow" />
-		<link rel="canonical" href="https://libredirect-instances-list.vercel.app/" />
-		<meta property="og:title" content="LibRedirect Instances List" />
-		<meta property="og:url" content="https://libredirect-instances-list.vercel.app/" />
-		<meta
-			property="og:description"
-			content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse Invidious, Nitter, SearXNG, and more across clearnet, Tor, I2P, and Loki."
-		/>
-		<meta property="og:type" content="website" />
-		<meta property="og:locale" content="en" />
-		<meta property="og:site_name" content="LibRedirect Instances List" />
-		<meta name="twitter:card" content="summary" />
-		<meta name="twitter:title" content="LibRedirect Instances List" />
-		<meta
-			name="twitter:description"
-			content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse Invidious, Nitter, SearXNG, and more."
-		/>
-		<meta name="theme-color" content="#0d1117" />
-		<meta name="apple-mobile-web-app-capable" content="yes" />
-		<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-		<meta name="apple-mobile-web-app-title" content="LibRedirect" />
-		<link rel="manifest" href="manifest.json" />
-		<link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png" />
-		<link rel="apple-touch-icon" href="icon-192x192.png" />
-		<link rel="stylesheet" href="app.css" />
-		<script type="application/ld+json">
-			{
-				"@context": "https://schema.org",
-				"@type": "WebApplication",
-				"name": "LibRedirect Instances List",
-				"url": "https://libredirect-instances-list.vercel.app/",
-				"description": "Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse available Invidious, Nitter, SearXNG, and more instances across clearnet, Tor, I2P, and Loki networks.",
-				"applicationCategory": "UtilityApplication",
-				"operatingSystem": "Any",
-				"offers": {
-					"@type": "Offer",
-					"price": "0",
-					"priceCurrency": "USD"
-				}
-			}
-		</script>
-	</head>
-	<body>
-		<header>
-			<h1>LibRedirect Instances List</h1>
-			<p>
-				<a href="https://github.com/sametcn99/libredirect-instances-list" rel="noopener noreferrer"
-					>GitHub Repository</a
-				>
-			</p>
-			<p>
-				This page fetches the
-				<a href="https://github.com/libredirect/instances" rel="noopener noreferrer">LibRedirect instances</a> JSON
-				directly in your browser. No server-side processing — your client fetches the data on every visit. You can
-				favorite services or URLs to pin them to the top of the list; favorites and network filter preferences are saved
-				in your browser's local storage. You can clear only favorites or clear all localStorage (favorites + filter
-				settings) using the buttons below. The "Check Availability" feature uses <code>fetch()</code> with
-				<code>no-cors</code> mode, which returns opaque responses — instances that respond successfully are marked as
-				reachable, but CORS-restricted instances may appear unreachable despite being online. Tor, I2P, and Loki
-				instances cannot be checked from a regular browser and are automatically skipped.
-			</p>
-			<nav aria-label="Instance filters">
-				<div>
-					<label for="search">Search instances:</label>
-					<input
-						type="search"
-						id="search"
-						placeholder="Filter by service name or URL"
-						autocomplete="off"
-						aria-label="Filter instances by service name or URL"
-					/>
-				</div>
-				<fieldset>
-					<legend>Network filters</legend>
-					<ul id="network-filters">
-						<li>
-							<label><input type="checkbox" id="filter-clearnet" checked /> Clearnet</label>
-						</li>
-						<li>
-							<label><input type="checkbox" id="filter-tor" checked /> Tor</label>
-						</li>
-						<li>
-							<label><input type="checkbox" id="filter-i2p" checked /> I2P</label>
-						</li>
-						<li>
-							<label><input type="checkbox" id="filter-loki" checked /> Loki</label>
-						</li>
-					</ul>
-				</fieldset>
-				<div id="health-controls" role="group" aria-label="Availability controls">
-					<button type="button" id="check-all" class="ctrl-btn">Check All Availability</button>
-					<button type="button" id="hide-all" class="ctrl-btn" disabled>Hide All Unavailable</button>
-					<button type="button" id="clear-favs" class="ctrl-btn" disabled aria-label="Clear all saved favorites">
-						Clear Favorites
-					</button>
-					<button
-						type="button"
-						id="clear-all-data"
-						class="ctrl-btn"
-						disabled
-						aria-label="Clear all localStorage data including favorites and filters"
-					>
-						Clear LocalStorage
-					</button>
-					<span id="health-status" role="status" aria-live="polite"></span>
-				</div>
-			</nav>
-		</header>
-		<main id="instances" aria-label="Instance list" aria-busy="true">
-			<p id="loading" role="status">Loading instances…</p>
-		</main>
-		<script src="app.js" defer></script>
-		<script>
-			if ("serviceWorker" in navigator) {
-				window.addEventListener("load", function () {
-					navigator.serviceWorker.register("/service-worker.js").then(
-						function (registration) {
-							console.log("ServiceWorker registered:", registration.scope);
-						},
-						function (error) {
-							console.log("ServiceWorker registration failed:", error);
-						},
-					);
-				});
-			}
-		</script>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LibRedirect Instances List — Privacy Front-End Instances</title>
+    <meta
+      name="description"
+      content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse available Invidious, Nitter, SearXNG, and more instances across clearnet, Tor, I2P, and Loki networks."
+    />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://libredirect-instances-list.vercel.app/" />
+    <meta property="og:title" content="LibRedirect Instances List" />
+    <meta property="og:url" content="https://libredirect-instances-list.vercel.app/" />
+    <meta
+      property="og:description"
+      content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse Invidious, Nitter, SearXNG, and more across clearnet, Tor, I2P, and Loki."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="en" />
+    <meta property="og:site_name" content="LibRedirect Instances List" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="LibRedirect Instances List" />
+    <meta
+      name="twitter:description"
+      content="Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse Invidious, Nitter, SearXNG, and more."
+    />
+    <meta name="theme-color" content="#0d1117" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="LibRedirect" />
+    <link rel="manifest" href="manifest.json" />
+    <link rel="icon" type="image/png" sizes="192x192" href="icon-192x192.png" />
+    <link rel="apple-touch-icon" href="icon-192x192.png" />
+    <link rel="stylesheet" href="app.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "LibRedirect Instances List",
+        "url": "https://libredirect-instances-list.vercel.app/",
+        "description": "Up-to-date list of privacy-respecting alternative front-end instances for LibRedirect. Browse available Invidious, Nitter, SearXNG, and more instances across clearnet, Tor, I2P, and Loki networks.",
+        "applicationCategory": "UtilityApplication",
+        "operatingSystem": "Any",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <header class="app-header">
+      <div class="brand">
+        <h1>LibRedirect Instances</h1>
+        <span class="tag">Privacy Front-Ends</span>
+      </div>
+      <div class="spacer"></div>
+      <a href="https://github.com/sametcn99/libredirect-instances-list" rel="noopener noreferrer" class="header-link">GitHub</a>
+    </header>
+
+    <div class="toolbar">
+      <div class="toolbar-inner">
+        <div class="toolbar-row">
+          <div class="search-wrap">
+            <span class="search-icon">⌕</span>
+            <input type="search" id="search" placeholder="Search by service or URL…" autocomplete="off" aria-label="Search instances" />
+            <span class="kbd-hint">/</span>
+          </div>
+          <div class="pills" id="net-filters">
+            <button class="pill active" data-net="clearnet" type="button"><span class="dot" style="background: #6b9eff"></span>Clearnet</button>
+            <button class="pill active" data-net="tor" type="button"><span class="dot" style="background: #b06bf0"></span>Tor</button>
+            <button class="pill active" data-net="i2p" type="button"><span class="dot" style="background: #2dd4bf"></span>I2P</button>
+            <button class="pill active" data-net="loki" type="button"><span class="dot" style="background: #f59e0b"></span>Loki</button>
+          </div>
+          <button class="pill" id="fav-only" type="button">★ Favorites</button>
+        </div>
+        <div class="toolbar-row">
+          <button class="btn btn-primary" id="check-all" type="button">Check Availability</button>
+          <button class="btn" id="hide-unavail" type="button" disabled>Hide Unavailable</button>
+          <button class="btn" id="toggle-collapse" type="button">Expand All</button>
+          <div class="spacer"></div>
+          <div class="stats" id="stats-bar">
+            <span class="stat"><span class="stat-val" id="stat-services">—</span>services</span>
+            <span class="stat-sep">·</span>
+            <span class="stat"><span class="stat-val" id="stat-total">—</span>instances</span>
+            <span class="stat-sep">·</span>
+            <span class="stat"><span class="stat-val" id="stat-shown">—</span>shown</span>
+            <span class="stat-sep">·</span>
+            <span class="stat">★ <span class="stat-val" id="stat-favs">0</span></span>
+            <span class="stat-sep" id="health-sep" style="display: none">·</span>
+            <span class="stat" id="health-stat-wrap" style="display: none"><span class="stat-val" id="health-stat">—</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <main id="instances" aria-busy="true">
+      <div class="loading-state">
+        <div class="spinner"></div>
+        <p>Loading instances…</p>
+      </div>
+    </main>
+
+    <footer class="app-footer">
+      <details class="about-section">
+        <summary>About & Data Controls</summary>
+        <div class="about-content">
+          <p class="about-text">
+            This page fetches the <a href="https://github.com/libredirect/instances" rel="noopener noreferrer">LibRedirect instances</a> JSON directly
+            in your browser — no server-side processing. Favorites and filter preferences are saved in localStorage. Availability checking uses
+            <code>fetch()</code> with <code>no-cors</code> mode; CORS-restricted instances may appear unreachable despite being online. Tor, I2P, and
+            Loki instances are automatically skipped during checks.
+          </p>
+          <div class="data-controls">
+            <button class="btn" id="clear-favs" type="button" disabled>Clear Favorites</button>
+            <button class="btn" id="clear-data" type="button">Clear All Local Data</button>
+          </div>
+        </div>
+      </details>
+      <div class="footer-bottom">
+        <a href="https://github.com/sametcn99/libredirect-instances-list" rel="noopener noreferrer">GitHub</a>
+        <span class="sep">·</span>
+        <a href="https://raw.githubusercontent.com/libredirect/instances/refs/heads/main/data.json" rel="noopener noreferrer">Data Source</a>
+        <span class="sep">·</span>
+        <a href="https://libredirect.manerakai.com" rel="noopener noreferrer">LibRedirect</a>
+        <span class="footer-note">Press / to search · Esc to clear</span>
+      </div>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="app.js" defer></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", function () {
+          navigator.serviceWorker.register("/service-worker.js").then(
+            function (registration) {
+              console.log("ServiceWorker registered:", registration.scope)
+            },
+            function (error) {
+              console.log("ServiceWorker registration failed:", error)
+            },
+          )
+        })
+      }
+    </script>
+  </body>
 </html>
