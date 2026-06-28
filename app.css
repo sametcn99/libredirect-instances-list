@@ -673,10 +673,34 @@ main {
   outline-offset: 1px;
 }
 
+/* ── Toolbar collapse (mobile) ────── */
+.toolbar-toggle-btn {
+  display: none;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  font-size: 18px;
+  padding: 2px 10px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  line-height: 1;
+}
+.toolbar-toggle-btn:hover {
+  border-color: var(--border-2);
+  background: var(--surface-2);
+}
+.toolbar.collapsed .toolbar-inner {
+  display: none;
+}
+
 /* ── Responsive ───────────────────── */
 @media (max-width: 768px) {
   .app-header {
     padding: 0 14px;
+    gap: 10px;
+  }
+  .toolbar-toggle-btn {
+    display: inline-flex;
   }
   .toolbar-inner {
     padding: 8px 14px 10px;

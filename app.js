@@ -65,6 +65,8 @@
   var clearFavsBtn = document.getElementById("clear-favs")
   var clearDataBtn = document.getElementById("clear-data")
   var toastEl = document.getElementById("toast")
+  var toolbarEl = document.querySelector(".toolbar")
+  var toolbarToggleBtn = document.getElementById("toolbar-toggle")
 
   var statServices = document.getElementById("stat-services")
   var statTotal = document.getElementById("stat-total")
@@ -89,6 +91,7 @@
 
   var FAV_STORAGE_KEY = "libredirect_favorites"
   var FILTER_STORAGE_KEY = "libredirect_network_filters"
+  var TOOLBAR_STORAGE_KEY = "libredirect_toolbar_collapsed"
   var FAV_SVC_KEY = "svc_"
   var FAV_URL_KEY = "url_"
 
@@ -117,6 +120,8 @@
   var checkRunning = false
   /** Services currently undergoing a per-service health check. Value is the live progress string ("done/total"). */
   var checkingServices = {}
+  /** When true, the mobile toolbar (search + buttons) is collapsed. */
+  var toolbarCollapsed = false
 
   /** Render-time counters, surfaced to the stats bar. */
   var renderStats = { services: 0, total: 0, shown: 0 }
@@ -192,6 +197,33 @@
       if (activeNets[key]) netPills[key].classList.add("active")
       else netPills[key].classList.remove("active")
     }
+  }
+
+  // =========================================================================
+  // PERSISTENCE: TOOLBAR COLLAPSE STATE
+  // =========================================================================
+
+  function loadToolbarState() {
+    try {
+      toolbarCollapsed = localStorage.getItem(TOOLBAR_STORAGE_KEY) === "1"
+    } catch (e) {
+      toolbarCollapsed = false
+    }
+    updateToolbarUI()
+  }
+
+  function saveToolbarState() {
+    try {
+      if (toolbarCollapsed) localStorage.setItem(TOOLBAR_STORAGE_KEY, "1")
+      else localStorage.removeItem(TOOLBAR_STORAGE_KEY)
+    } catch (e) {}
+  }
+
+  function updateToolbarUI() {
+    if (!toolbarEl) return
+    if (toolbarCollapsed) toolbarEl.classList.add("collapsed")
+    else toolbarEl.classList.remove("collapsed")
+    if (toolbarToggleBtn) toolbarToggleBtn.setAttribute("aria-expanded", String(!toolbarCollapsed))
   }
 
   // =========================================================================
@@ -981,6 +1013,15 @@
     refresh()
   })
 
+  // "Toolbar toggle" (mobile) - collapse/expand the search + buttons bar
+  if (toolbarToggleBtn) {
+    toolbarToggleBtn.addEventListener("click", function () {
+      toolbarCollapsed = !toolbarCollapsed
+      updateToolbarUI()
+      saveToolbarState()
+    })
+  }
+
   // "Clear Favorites"
   clearFavsBtn.addEventListener("click", function () {
     if (!confirm("Clear all favorites?")) return
@@ -1002,6 +1043,9 @@
     hideUnavail = false
     localStorage.removeItem(FAV_STORAGE_KEY)
     localStorage.removeItem(FILTER_STORAGE_KEY)
+    toolbarCollapsed = false
+    localStorage.removeItem(TOOLBAR_STORAGE_KEY)
+    updateToolbarUI()
     updateClearFavsBtn()
     updateGlobalControls()
     refresh()
@@ -1074,6 +1118,7 @@
   loadFavorites()
   loadFilters()
   syncPillClasses()
+  loadToolbarState()
   updateClearFavsBtn()
   updateGlobalControls()
   updateHealthSummary()
