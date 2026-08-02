@@ -16,7 +16,7 @@
  * @module libredirect-instances
  */
 
-;(function () {
+; (function () {
   "use strict"
 
   // =========================================================================
@@ -48,6 +48,93 @@
   var BADGE_UNREACHABLE = 0
   /** @constant {number} */
   var BADGE_SKIP = -1
+
+  // =========================================================================
+  // PLATFORM MAPPING
+  // =========================================================================
+
+  /** @constant {Record<string, string[]>} */
+  var PLATFORM_MAPPING = {
+    "YouTube": ["Invidious", "Materialious", "Piped", "Piped-Material", "Poke", "CloudTube", "LightTube", "Tubo", "FreeTube", "Yattee", "FreeTube PWA", "ViewTube", "ytify"],
+    "YT Music": ["ytify", "Hyperpipe", "Invidious", "FreeTube"],
+    "Twitter": ["Nitter"],
+    "ChatGPT": ["DuckDuckGo AI Chat", "Lumo by Proton"],
+    "Bluesky": ["Skyview", "Skylib"],
+    "Reddit": ["Libreddit", "Redlib", "Teddit", "Eddrit", "Troddit"],
+    "Tumblr": ["Priviblur"],
+    "Twitch": ["SafeTwitch", "Twineo"],
+    "TikTok": ["ProxiTok", "Offtiktok"],
+    "Instagram": ["kittygram", "Proxigram"],
+    "IMDb": ["libremdb"],
+    "Bilibili": ["MikuInvidious"],
+    "Pixiv": ["PixivFE", "LiteXiv", "Vixipy", "Pixiv Viewer"],
+    "Fandom": ["BreezeWiki", "Phantom"],
+    "Imgur": ["rimgo"],
+    "Pinterest": ["Binternet", "Painterest"],
+    "SoundCloud": ["Tubo", "soundcloak"],
+    "Bandcamp": ["Tent"],
+    "Tekstowo.pl": ["TekstoLibre"],
+    "Genius": ["Dumb", "Intellectual"],
+    "Medium": ["Scribe", "LibMedium", "Small", "Freedium"],
+    "Quora": ["Quetre"],
+    "GitHub": ["Gothub"],
+    "GitLab": ["Laboratory"],
+    "Stack Overflow": ["AnonymousOverflow"],
+    "Reuters": ["Neuters"],
+    "Snopes": ["Suds"],
+    "iFunny": ["UNfunny"],
+    "Tenor": ["Soprano"],
+    "KnowYourMeme": ["MeMe"],
+    "Urban Dictionary": ["Rural Dictionary"],
+    "Goodreads": ["BiblioReads"],
+    "Wolfram Alpha": ["WolfreeAlpha"],
+    "Instructables": ["Structables", "Destructables", "Indestructables"],
+    "Wikipedia": ["Wikiless", "Wikimore"],
+    "Wayback Machine": ["Wayback Classic"],
+    "Pastebin": ["Pasted"],
+    "Search": ["SearXNG", "SearX", "Whoogle", "LibreY", "4get", "Websurfx"],
+    "Translate": ["SimplyTranslate", "Mozhi", "LibreTranslate", "Translite"],
+    "Maps": ["OpenStreetMap"],
+    "Meet": ["Jitsi"],
+    "Send Files": ["Send"],
+    "Paste Text": ["PrivateBin", "Pasted", "Pasty"],
+    "Office": ["CryptPad"],
+    "Ultimate Guitar": ["Freetar", "Ultimate Tab"],
+    "Baidu Tieba": ["Rat Aint Tieba"],
+    "Threads": ["Shoelace"],
+    "DeviantArt": ["SkunkyArt"],
+    "GeeksforGeeks": ["NerdsforNerds", "Ducks for Ducks"],
+    "Coub": ["Koub"],
+    "Chefkoch": ["GoCook"]
+  }
+
+  /**
+   * Normalize alternative front-end name for matching.
+   * @param {string} name
+   * @returns {string}
+   */
+  function normalizeName(name) {
+    return name.toLowerCase().replace(/[^a-z0-9]/g, "")
+  }
+
+  /** @type {Record<string, string[]>} */
+  var serviceToPlatforms = {}
+
+  // Populate service-to-platform mapping index
+  for (var platform in PLATFORM_MAPPING) {
+    if (PLATFORM_MAPPING.hasOwnProperty(platform)) {
+      var frontends = PLATFORM_MAPPING[platform]
+      for (var j = 0; j < frontends.length; j++) {
+        var norm = normalizeName(frontends[j])
+        if (!serviceToPlatforms[norm]) {
+          serviceToPlatforms[norm] = []
+        }
+        if (serviceToPlatforms[norm].indexOf(platform) === -1) {
+          serviceToPlatforms[norm].push(platform)
+        }
+      }
+    }
+  }
 
   // =========================================================================
   // DOM REFERENCES
@@ -156,7 +243,7 @@
       }
       if (hasFav) localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(favorites))
       else localStorage.removeItem(FAV_STORAGE_KEY)
-    } catch (e) {}
+    } catch (e) { }
   }
 
   // =========================================================================
@@ -175,7 +262,7 @@
         }
       }
       syncPillClasses()
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function saveFilters() {
@@ -188,7 +275,7 @@
       }
       if (allDefault) localStorage.removeItem(FILTER_STORAGE_KEY)
       else localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state))
-    } catch (e) {}
+    } catch (e) { }
   }
 
   /** Reflect {@link activeNets} into the pill buttons' `active` class. */
@@ -216,7 +303,7 @@
     try {
       if (toolbarCollapsed) localStorage.setItem(TOOLBAR_STORAGE_KEY, "1")
       else localStorage.removeItem(TOOLBAR_STORAGE_KEY)
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function updateToolbarUI() {
@@ -699,6 +786,9 @@
     for (var s = 0; s < services.length; s++) {
       var serviceName = services[s]
       var service = data[serviceName]
+      var normSvc = normalizeName(serviceName)
+      var matchedPlats = serviceToPlatforms[normSvc] || []
+      var platString = matchedPlats.join(", ")
 
       // Gather visible instances across active networks.
       var rows = []
@@ -710,7 +800,12 @@
         for (var u = 0; u < netUrls.length; u++) {
           var url = netUrls[u]
           totalCount++
-          if (lowerFilter !== "" && serviceName.toLowerCase().indexOf(lowerFilter) === -1 && url.toLowerCase().indexOf(lowerFilter) === -1) continue
+          if (lowerFilter !== "" &&
+            serviceName.toLowerCase().indexOf(lowerFilter) === -1 &&
+            url.toLowerCase().indexOf(lowerFilter) === -1 &&
+            platString.toLowerCase().indexOf(lowerFilter) === -1) {
+            continue
+          }
           if (favOnly && !isFavUrl(url) && !isFavService(serviceName)) continue
           if (hideUnavail && healthResults[url] === BADGE_UNREACHABLE) continue
           rows.push({ url: url, net: net })
@@ -736,13 +831,13 @@
       if (isFavService(serviceName)) group.classList.add("is-fav-group")
       group.setAttribute("aria-label", serviceName + " instances")
 
-      // Preserve / sync open state across re-renders.
-      ;(function (sn) {
-        group.addEventListener("toggle", function () {
-          sectionOpen[sn] = group.hasAttribute("open")
-          updateCollapseBtn()
-        })
-      })(serviceName)
+        // Preserve / sync open state across re-renders.
+        ; (function (sn) {
+          group.addEventListener("toggle", function () {
+            sectionOpen[sn] = group.hasAttribute("open")
+            updateCollapseBtn()
+          })
+        })(serviceName)
 
       var summary = document.createElement("summary")
 
@@ -763,6 +858,13 @@
         })(serviceName),
       )
       summary.appendChild(favBtn)
+
+      if (matchedPlats.length > 0) {
+        var platSpan = document.createElement("span")
+        platSpan.className = "svc-platform"
+        platSpan.appendChild(highlightMatch(platString, lowerFilter))
+        summary.appendChild(platSpan)
+      }
 
       var nameSpan = document.createElement("span")
       nameSpan.className = "svc-name"
@@ -968,7 +1070,7 @@
 
   // Network filter pills: toggle active class, persist, re-render
   for (var key in netPills) {
-    ;(function (k) {
+    ; (function (k) {
       netPills[k].addEventListener("click", function () {
         activeNets[k] = !activeNets[k]
         if (activeNets[k]) netPills[k].classList.add("active")
@@ -1115,6 +1217,65 @@
     fetchController.abort()
   })
 
+  // =========================================================================
+  // SCROLL PARALLAX EFFECT
+  // =========================================================================
+
+  var headerHeight = 0
+  var toolbarHeight = 0
+
+  function updateHeights() {
+    var header = document.querySelector(".app-header")
+    var toolbar = document.querySelector(".toolbar")
+    headerHeight = header ? header.offsetHeight : 54
+    toolbarHeight = toolbar ? toolbar.offsetHeight : 112
+  }
+
+  function updateScrollParallax() {
+    var y = window.scrollY
+    var header = document.querySelector(".app-header")
+    var toolbar = document.querySelector(".toolbar")
+
+    if (header) {
+      var headerTrans = -Math.min(y * 0.5, headerHeight)
+      var headerOpacity = Math.max(0, 1 - y / headerHeight)
+      header.style.transform = "translate3d(0, " + headerTrans + "px, 0)"
+      header.style.opacity = headerOpacity
+      header.style.pointerEvents = headerOpacity < 0.1 ? "none" : "auto"
+    }
+
+    if (toolbar) {
+      var maxToolbarTrans = headerHeight + toolbarHeight
+      var toolbarTrans = -Math.min(y * 0.8, maxToolbarTrans)
+      var toolbarOpacity = Math.max(0, 1 - y / maxToolbarTrans)
+      toolbar.style.transform = "translate3d(0, " + toolbarTrans + "px, 0)"
+      toolbar.style.opacity = toolbarOpacity
+      toolbar.style.pointerEvents = toolbarOpacity < 0.1 ? "none" : "auto"
+    }
+  }
+
+  function initScrollParallax() {
+    updateHeights()
+    window.addEventListener("resize", function () {
+      updateHeights()
+      updateScrollParallax()
+    })
+
+    var ticking = false
+    window.addEventListener("scroll", function () {
+      if (!ticking) {
+        window.requestAnimationFrame(function () {
+          updateScrollParallax()
+          ticking = false
+        })
+        ticking = true
+      }
+    })
+
+    // Run once on init
+    updateScrollParallax()
+  }
+
   loadFavorites()
   loadFilters()
   syncPillClasses()
@@ -1122,6 +1283,7 @@
   updateClearFavsBtn()
   updateGlobalControls()
   updateHealthSummary()
+  initScrollParallax()
 
   fetch(NETWORKS_URL, { signal: fetchController.signal })
     .then(function (response) {
