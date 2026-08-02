@@ -16,7 +16,7 @@
  * @module libredirect-instances
  */
 
-; (function () {
+;(function () {
   "use strict"
 
   // =========================================================================
@@ -55,57 +55,71 @@
 
   /** @constant {Record<string, string[]>} */
   var PLATFORM_MAPPING = {
-    "YouTube": ["Invidious", "Materialious", "Piped", "Piped-Material", "Poke", "CloudTube", "LightTube", "Tubo", "FreeTube", "Yattee", "FreeTube PWA", "ViewTube", "ytify"],
+    YouTube: [
+      "Invidious",
+      "Materialious",
+      "Piped",
+      "Piped-Material",
+      "Poke",
+      "CloudTube",
+      "LightTube",
+      "Tubo",
+      "FreeTube",
+      "Yattee",
+      "FreeTube PWA",
+      "ViewTube",
+      "ytify",
+    ],
     "YT Music": ["ytify", "Hyperpipe", "Invidious", "FreeTube"],
-    "Twitter": ["Nitter"],
-    "ChatGPT": ["DuckDuckGo AI Chat", "Lumo by Proton"],
-    "Bluesky": ["Skyview", "Skylib"],
-    "Reddit": ["Libreddit", "Redlib", "Teddit", "Eddrit", "Troddit"],
-    "Tumblr": ["Priviblur"],
-    "Twitch": ["SafeTwitch", "Twineo"],
-    "TikTok": ["ProxiTok", "Offtiktok"],
-    "Instagram": ["kittygram", "Proxigram"],
-    "IMDb": ["libremdb"],
-    "Bilibili": ["MikuInvidious"],
-    "Pixiv": ["PixivFE", "LiteXiv", "Vixipy", "Pixiv Viewer"],
-    "Fandom": ["BreezeWiki", "Phantom"],
-    "Imgur": ["rimgo"],
-    "Pinterest": ["Binternet", "Painterest"],
-    "SoundCloud": ["Tubo", "soundcloak"],
-    "Bandcamp": ["Tent"],
+    Twitter: ["Nitter"],
+    ChatGPT: ["DuckDuckGo AI Chat", "Lumo by Proton"],
+    Bluesky: ["Skyview", "Skylib"],
+    Reddit: ["Libreddit", "Redlib", "Teddit", "Eddrit", "Troddit"],
+    Tumblr: ["Priviblur"],
+    Twitch: ["SafeTwitch", "Twineo"],
+    TikTok: ["ProxiTok", "Offtiktok"],
+    Instagram: ["kittygram", "Proxigram"],
+    IMDb: ["libremdb"],
+    Bilibili: ["MikuInvidious"],
+    Pixiv: ["PixivFE", "LiteXiv", "Vixipy", "Pixiv Viewer"],
+    Fandom: ["BreezeWiki", "Phantom"],
+    Imgur: ["rimgo"],
+    Pinterest: ["Binternet", "Painterest"],
+    SoundCloud: ["Tubo", "soundcloak"],
+    Bandcamp: ["Tent"],
     "Tekstowo.pl": ["TekstoLibre"],
-    "Genius": ["Dumb", "Intellectual"],
-    "Medium": ["Scribe", "LibMedium", "Small", "Freedium"],
-    "Quora": ["Quetre"],
-    "GitHub": ["Gothub"],
-    "GitLab": ["Laboratory"],
+    Genius: ["Dumb", "Intellectual"],
+    Medium: ["Scribe", "LibMedium", "Small", "Freedium"],
+    Quora: ["Quetre"],
+    GitHub: ["Gothub"],
+    GitLab: ["Laboratory"],
     "Stack Overflow": ["AnonymousOverflow"],
-    "Reuters": ["Neuters"],
-    "Snopes": ["Suds"],
-    "iFunny": ["UNfunny"],
-    "Tenor": ["Soprano"],
-    "KnowYourMeme": ["MeMe"],
+    Reuters: ["Neuters"],
+    Snopes: ["Suds"],
+    iFunny: ["UNfunny"],
+    Tenor: ["Soprano"],
+    KnowYourMeme: ["MeMe"],
     "Urban Dictionary": ["Rural Dictionary"],
-    "Goodreads": ["BiblioReads"],
+    Goodreads: ["BiblioReads"],
     "Wolfram Alpha": ["WolfreeAlpha"],
-    "Instructables": ["Structables", "Destructables", "Indestructables"],
-    "Wikipedia": ["Wikiless", "Wikimore"],
+    Instructables: ["Structables", "Destructables", "Indestructables"],
+    Wikipedia: ["Wikiless", "Wikimore"],
     "Wayback Machine": ["Wayback Classic"],
-    "Pastebin": ["Pasted"],
-    "Search": ["SearXNG", "SearX", "Whoogle", "LibreY", "4get", "Websurfx"],
-    "Translate": ["SimplyTranslate", "Mozhi", "LibreTranslate", "Translite"],
-    "Maps": ["OpenStreetMap"],
-    "Meet": ["Jitsi"],
+    Pastebin: ["Pasted"],
+    Search: ["SearXNG", "SearX", "Whoogle", "LibreY", "4get", "Websurfx"],
+    Translate: ["SimplyTranslate", "Mozhi", "LibreTranslate", "Translite"],
+    Maps: ["OpenStreetMap"],
+    Meet: ["Jitsi"],
     "Send Files": ["Send"],
     "Paste Text": ["PrivateBin", "Pasted", "Pasty"],
-    "Office": ["CryptPad"],
+    Office: ["CryptPad"],
     "Ultimate Guitar": ["Freetar", "Ultimate Tab"],
     "Baidu Tieba": ["Rat Aint Tieba"],
-    "Threads": ["Shoelace"],
-    "DeviantArt": ["SkunkyArt"],
-    "GeeksforGeeks": ["NerdsforNerds", "Ducks for Ducks"],
-    "Coub": ["Koub"],
-    "Chefkoch": ["GoCook"]
+    Threads: ["Shoelace"],
+    DeviantArt: ["SkunkyArt"],
+    GeeksforGeeks: ["NerdsforNerds", "Ducks for Ducks"],
+    Coub: ["Koub"],
+    Chefkoch: ["GoCook"],
   }
 
   /**
@@ -243,7 +257,7 @@
       }
       if (hasFav) localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(favorites))
       else localStorage.removeItem(FAV_STORAGE_KEY)
-    } catch (e) { }
+    } catch (e) {}
   }
 
   // =========================================================================
@@ -262,7 +276,7 @@
         }
       }
       syncPillClasses()
-    } catch (e) { }
+    } catch (e) {}
   }
 
   function saveFilters() {
@@ -275,7 +289,7 @@
       }
       if (allDefault) localStorage.removeItem(FILTER_STORAGE_KEY)
       else localStorage.setItem(FILTER_STORAGE_KEY, JSON.stringify(state))
-    } catch (e) { }
+    } catch (e) {}
   }
 
   /** Reflect {@link activeNets} into the pill buttons' `active` class. */
@@ -303,7 +317,7 @@
     try {
       if (toolbarCollapsed) localStorage.setItem(TOOLBAR_STORAGE_KEY, "1")
       else localStorage.removeItem(TOOLBAR_STORAGE_KEY)
-    } catch (e) { }
+    } catch (e) {}
   }
 
   function updateToolbarUI() {
@@ -800,10 +814,12 @@
         for (var u = 0; u < netUrls.length; u++) {
           var url = netUrls[u]
           totalCount++
-          if (lowerFilter !== "" &&
+          if (
+            lowerFilter !== "" &&
             serviceName.toLowerCase().indexOf(lowerFilter) === -1 &&
             url.toLowerCase().indexOf(lowerFilter) === -1 &&
-            platString.toLowerCase().indexOf(lowerFilter) === -1) {
+            platString.toLowerCase().indexOf(lowerFilter) === -1
+          ) {
             continue
           }
           if (favOnly && !isFavUrl(url) && !isFavService(serviceName)) continue
@@ -831,13 +847,13 @@
       if (isFavService(serviceName)) group.classList.add("is-fav-group")
       group.setAttribute("aria-label", serviceName + " instances")
 
-        // Preserve / sync open state across re-renders.
-        ; (function (sn) {
-          group.addEventListener("toggle", function () {
-            sectionOpen[sn] = group.hasAttribute("open")
-            updateCollapseBtn()
-          })
-        })(serviceName)
+      // Preserve / sync open state across re-renders.
+      ;(function (sn) {
+        group.addEventListener("toggle", function () {
+          sectionOpen[sn] = group.hasAttribute("open")
+          updateCollapseBtn()
+        })
+      })(serviceName)
 
       var summary = document.createElement("summary")
 
@@ -1070,7 +1086,7 @@
 
   // Network filter pills: toggle active class, persist, re-render
   for (var key in netPills) {
-    ; (function (k) {
+    ;(function (k) {
       netPills[k].addEventListener("click", function () {
         activeNets[k] = !activeNets[k]
         if (activeNets[k]) netPills[k].classList.add("active")
