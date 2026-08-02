@@ -1,6 +1,7 @@
 # LibRedirect Instances List
 
 A client-side web app that fetches and displays [LibRedirect](https://github.com/libredirect/libredirect) alternative front-end instances directly in your browser.
+[Website](https://libredirect-instances-list.vercel.app) | [Source Code](https://github.com/sametcn99/libredirect-instances-list)
 
 ## Features
 
