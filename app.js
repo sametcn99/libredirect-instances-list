@@ -27,6 +27,8 @@
   var NETWORKS_URL = "https://raw.githubusercontent.com/libredirect/instances/refs/heads/main/networks.json"
   /** @constant {string} */
   var DATA_URL = "https://raw.githubusercontent.com/libredirect/instances/main/data.json"
+  /** @constant {string} */
+  var CONFIG_URL = "https://raw.githubusercontent.com/libredirect/browser_extension/master/src/config.json"
   /** @constant {string[]} */
   var ALLOWED_SCHEMES = ["https:", "http:"]
 
@@ -202,6 +204,8 @@
 
   /** @type {?AllData} */
   var allData = null
+  /** @type {Record<string, string>} Frontend id -> project source/homepage URL, from CONFIG_URL. */
+  var frontendSourceUrls = {}
   /** @type {HealthResults} */
   var healthResults = {}
   /** @type {PendingChecks} */
@@ -917,7 +921,10 @@
         health.classList.add("partial")
       }
       meta.appendChild(health)
-      summary.appendChild(meta)
+
+      var actions = document.createElement("div")
+      actions.className = "svc-actions"
+      actions.appendChild(meta)
 
       // Per-service "Check" button (checks all of this category's URLs).
       var svcCheckBtn = document.createElement("button")
@@ -938,8 +945,26 @@
           }
         })(serviceName),
       )
-      summary.appendChild(svcCheckBtn)
+      actions.appendChild(svcCheckBtn)
 
+      // Per-service "Source" link, opens the frontend project's repo/homepage.
+      var sourceUrl = frontendSourceUrls[serviceName]
+      if (sourceUrl && isAllowedUrl(sourceUrl)) {
+        var sourceLink = document.createElement("a")
+        sourceLink.className = "act-btn"
+        sourceLink.setAttribute("data-action", "source")
+        sourceLink.href = sourceUrl
+        sourceLink.rel = "noopener noreferrer"
+        sourceLink.target = "_blank"
+        sourceLink.title = "View " + serviceName + " source"
+        sourceLink.textContent = "Source"
+        sourceLink.addEventListener("click", function (e) {
+          e.stopPropagation()
+        })
+        actions.appendChild(sourceLink)
+      }
+
+      summary.appendChild(actions)
       group.appendChild(summary)
 
       var body = document.createElement("div")
@@ -1317,6 +1342,8 @@
     })
     .then(function (data) {
       allData = data
+      window.__libredirectInstancesData = allData
+      window.dispatchEvent(new CustomEvent("libredirect-instances-ready", { detail: allData }))
       if (loadingEl && loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl)
       loadingEl = null
       instancesContainer.removeAttribute("aria-busy")
@@ -1337,4 +1364,23 @@
       instancesContainer.appendChild(wrap)
       instancesContainer.removeAttribute("aria-busy")
     })
+
+  // Frontend source/homepage links, fetched independently — a failure here
+  // just means source buttons stay hidden, it should never block the list.
+  fetch(CONFIG_URL, { signal: fetchController.signal })
+    .then(function (response) {
+      if (!response.ok) throw new Error("HTTP " + response.status)
+      return response.json()
+    })
+    .then(function (config) {
+      var services = (config && config.services) || {}
+      for (var svcId in services) {
+        var frontends = services[svcId].frontends || {}
+        for (var frontendId in frontends) {
+          if (frontends[frontendId].url) frontendSourceUrls[frontendId] = frontends[frontendId].url
+        }
+      }
+      refresh()
+    })
+    .catch(function () {})
 })()

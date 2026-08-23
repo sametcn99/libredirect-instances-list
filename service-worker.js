@@ -1,5 +1,5 @@
 var CACHE_NAME = "libredirect-instances-v1"
-var ASSETS_TO_CACHE = ["/", "index.html", "app.js", "app.css", "manifest.json", "icon-192x192.png", "icon-512x512.png"]
+var ASSETS_TO_CACHE = ["/", "index.html", "app.js", "app.css", "manifest.json", "icon-192x192.png", "icon-512x512.png", "link-workspace.js"]
 
 self.addEventListener("install", function (event) {
   event.waitUntil(

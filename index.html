@@ -51,6 +51,24 @@
     </script>
   </head>
   <body>
+    <script>
+      ;(function () {
+        try {
+          if (new URLSearchParams(location.search).has("url")) {
+            document.documentElement.classList.add("redirect-pending")
+          }
+        } catch (e) {}
+      })()
+    </script>
+
+    <div id="redirect-overlay" class="redirect-overlay" role="status" aria-live="polite">
+      <div class="redirect-overlay-inner">
+        <div class="spinner"></div>
+        <p class="redirect-overlay-title">Redirecting…</p>
+        <p class="redirect-overlay-copy" id="redirect-overlay-copy"></p>
+      </div>
+    </div>
+
     <header class="app-header">
       <button class="toolbar-toggle-btn" id="toolbar-toggle" type="button" aria-label="Toggle toolbar">≡</button>
       <div class="brand">
@@ -63,6 +81,26 @@
 
     <div class="toolbar">
       <div class="toolbar-inner">
+        <div class="toolbar-row link-open-row" id="link-open-row">
+          <div class="link-input-wrap">
+            <span class="link-input-icon" aria-hidden="true">↗</span>
+            <input type="url" id="link-source" placeholder="Paste a link to open in a privacy front-end…" autocomplete="off" spellcheck="false" aria-label="Link to open" />
+          </div>
+          <select id="link-service" class="link-select" aria-label="Detected service" disabled>
+            <option value="">Detecting service…</option>
+          </select>
+          <select id="link-frontend" class="link-select" aria-label="Front-end" disabled>
+            <option value="">Select front-end</option>
+          </select>
+          <select id="link-network" class="link-select link-network-select" aria-label="Network" disabled>
+            <option value="clearnet">Clearnet</option>
+          </select>
+          <select id="link-instance" class="link-select link-instance-select" aria-label="Instance" disabled>
+            <option value="">Recommended instance</option>
+          </select>
+          <button class="btn btn-primary link-open-btn" id="link-open" type="button" disabled>Open</button>
+        </div>
+        <div class="link-open-hint" id="link-open-hint" role="status" aria-live="polite">Paste a supported source link to choose an instance.</div>
         <div class="toolbar-row">
           <div class="search-wrap">
             <span class="search-icon">⌕</span>
@@ -97,10 +135,12 @@
       </div>
     </div>
 
-    <main id="instances" aria-busy="true">
-      <div class="loading-state">
-        <div class="spinner"></div>
-        <p>Loading instances…</p>
+    <main>
+      <div id="instances" aria-busy="true">
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Loading instances…</p>
+        </div>
       </div>
     </main>
 
@@ -132,6 +172,7 @@
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>
     <script src="app.js" defer></script>
+    <script src="link-workspace.js" defer></script>
     <script>
       if ("serviceWorker" in navigator) {
         window.addEventListener("load", function () {
