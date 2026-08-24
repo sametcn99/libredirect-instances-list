@@ -1,7 +1,8 @@
-var CACHE_NAME = "libredirect-instances-v1"
+var CACHE_NAME = "libredirect-instances-v2"
 var ASSETS_TO_CACHE = ["/", "index.html", "app.js", "app.css", "manifest.json", "icon-192x192.png", "icon-512x512.png", "link-workspace.js"]
 
 self.addEventListener("install", function (event) {
+  self.skipWaiting()
   event.waitUntil(
     caches.open(CACHE_NAME).then(function (cache) {
       return cache.addAll(ASSETS_TO_CACHE)
@@ -11,17 +12,22 @@ self.addEventListener("install", function (event) {
 
 self.addEventListener("activate", function (event) {
   event.waitUntil(
-    caches.keys().then(function (keys) {
-      return Promise.all(
-        keys
-          .filter(function (key) {
-            return key !== CACHE_NAME
-          })
-          .map(function (key) {
-            return caches.delete(key)
-          }),
-      )
-    }),
+    caches
+      .keys()
+      .then(function (keys) {
+        return Promise.all(
+          keys
+            .filter(function (key) {
+              return key !== CACHE_NAME
+            })
+            .map(function (key) {
+              return caches.delete(key)
+            }),
+        )
+      })
+      .then(function () {
+        return self.clients.claim()
+      }),
   )
 })
 
