@@ -630,7 +630,17 @@
   function openExternal(target) {
     var parsed = parseHttpUrl(target)
     if (!parsed) return
-    window.open(parsed.href, "_blank", "noopener,noreferrer")
+    // Some content-blocker extensions (e.g. uBlock Origin) intercept and
+    // silently drop window.open() calls as suspected popups, even for
+    // direct, synchronous user clicks. A synthetic anchor click is
+    // indistinguishable from a normal link click, so it isn't affected.
+    var link = document.createElement("a")
+    link.href = parsed.href
+    link.target = "_blank"
+    link.rel = "noopener noreferrer"
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
   }
 
   var REDIRECT_REASON_MESSAGES = {
